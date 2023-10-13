@@ -1,0 +1,248 @@
+openapi: 3.0.1
+info:
+  title: DFlow Market Maker EVM Legacy Swap API
+  version: 0.1.1
+  description: An API for interacting with a DFlow market maker to retrieve quotes for EVM Legacy Swaps.
+
+paths:
+  /indicativeQuote:
+    get:
+      summary: Retrieve an indicative quote
+      parameters:
+        - name: sendToken
+          description: Address of the ERC-20 token that the retail trader is sending
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: receiveToken
+          description: Address of the ERC-20 token that the retail trader is receiving
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: minFillPrice
+          description: Minimum allowed fill price. Specified as token units sent to retail trader per token received from retail trader
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: '^0$|^[1-9]\d*$'
+        - name: auctionId
+          description: The auction ID associated with this request
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: '^0$|^[1-9]\d*$'
+        - name: auctionEpoch
+          description: The auction epoch associated with this request
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: '^0$|^[1-9]\d*$'
+      responses:
+        '200':
+          description: Indicative quote details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IndicativeQuoteGetResponse'
+        default:
+          description: The market maker did not provide an indicative quote
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /firmQuote:
+    post:
+      summary: Retrieve a firm quote
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FirmQuotePostRequest'
+      responses:
+        '200':
+          description: Firm quote response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FirmQuotePostResponse'
+        default:
+          description: The market maker did not provide a firm quote due to an unexpected error
+          content:
+            application/json:
+              schema:
+                type: object
+
+components:
+  schemas:
+    IndicativeQuoteGetResponse:
+      type: object
+      properties:
+        fillPrice:
+          description: Token units sent to retail trader per token received from retail trader. Must be greater than or equal to the minFillPrice.
+          type: string
+          pattern: '^0$|^[1-9]\d*$'
+      required:
+        - fillPrice
+
+    FirmQuotePostRequest:
+      type: object
+      properties:
+        sendToken:
+          description: Address of the ERC-20 token that the retail trader is sending. This is the takerToken used to construct the 0x RFQ order.
+          type: string
+        receiveToken:
+          description: Address of the ERC-20 token that the retail trader is receiving. This is the makerToken used to construct the 0x RFQ order.
+          type: string
+        sendQty:
+          description: Send quantity specified as a scaled integer
+          type: string
+          pattern: '^[1-9]\d*$'
+        minFillQty:
+          description: Minimum allowed fill quantity specified as a scaled integer
+          type: string
+          pattern: '^0$|^[1-9]\d*$'
+        retailTrader:
+          description: Address of the retail trader's wallet
+          type: string
+        endorsement:
+          description: The order flow source's endorsement of this request
+          type: object
+          properties:
+            endorser:
+              description: Base58-encoded Ed25519 public key used to sign the endorsement message.
+              type: string
+            signature:
+              description: Base64-encoded Ed25519 signature of {id},{expirationTime},{data}
+              type: string
+            id:
+              description: Base64-encoded 64-bit identifier for the endorsement.
+              type: string
+            expirationTimeUTC:
+              description: Expiration time as UTC. Number of seconds since Jan 1, 1970 00:00:00 UTC.
+              type: integer
+            data:
+              description: Pipe-delimited endorsement data
+              type: string
+          required:
+            - endorser
+            - signature
+            - id
+            - expirationTimeUTC
+            - data
+        taker:
+          description: taker to use when constructing the 0x RFQ order
+          type: string
+        txOrigin:
+          description: txOrigin to use when constructing the 0x RFQ order
+          type: string
+        minExpiry:
+          description: Minimum allowed expiry for the 0x RFQ order. Number of seconds since Jan 1, 1970 00:00:00 UTC.
+          type: integer
+        chainId:
+          description: chainId to use when constructing the 0x RFQ order
+          type: integer
+        verifyingContract:
+          description: verifyingContract to use when constructing the 0x RFQ order
+          type: string
+        auctionId:
+          description: The auction ID associated with this request
+          type: string
+          pattern: '^0$|^[1-9]\d*$'
+        auctionEpoch:
+          description: The auction epoch associated with this request
+          type: string
+          pattern: '^0$|^[1-9]\d*$'
+      required:
+        - sendToken
+        - receiveToken
+        - sendQty
+        - minFillQty
+        - retailTrader
+        - endorsement
+        - taker
+        - txOrigin
+        - minExpiry
+        - chainId
+        - verifyingContract
+        - auctionId
+        - auctionEpoch
+
+    FirmQuotePostResponse:
+      type: object
+      discriminator:
+        propertyName: code
+      oneOf:
+        - $ref: '#/components/schemas/FirmQuoteResponseOk'
+        - $ref: '#/components/schemas/FirmQuoteResponseRefused'
+
+    FirmQuoteResponseOk:
+      type: object
+      properties:
+        code:
+          description: Ok
+          type: integer
+          enum: [0]
+        fillQty:
+          description: Fill quantity specified as a scaled integer. Must be greater than or equal to the minFillQty.
+          type: string
+          pattern: '^0$|^[1-9]\d*$'
+        maker:
+          description: Address of the market maker's wallet. This is the signer of the 0x RFQ order. This is the maker used to construct the 0x RFQ order.
+          type: string
+          pattern: '^0x[0-9a-fA-F]+$'
+        expiry:
+          description: expiry used to construct the 0x RFQ order. Formatted as a hex string.
+          type: string
+          pattern: '^[0-9a-fA-F]+$'
+        salt:
+          description: salt used to construct the 0x RFQ order. Formatted as a hex string.
+          type: string
+          pattern: '^[0-9a-fA-F]+$'
+        rfqOrderSignature:
+          description: Market maker's signature of the 0x RFQ order
+          type: object
+          properties:
+            r:
+              type: string
+              pattern: '^0x[0-9a-fA-F]+$'
+            s:
+              type: string
+              pattern: '^0x[0-9a-fA-F]+$'
+            v:
+              type: integer
+            signatureType:
+              type: integer
+              enum: [2]
+          required:
+            - r
+            - s
+            - v
+            - signatureType
+        quoteId:
+          description: The market maker's identifier for the quote
+          type: string
+      required:
+        - code
+        - fillQty
+        - maker
+        - expiry
+        - salt
+        - rfqOrderSignature
+        - quoteId
+
+    FirmQuoteResponseRefused:
+      type: object
+      properties:
+        code:
+          description: The market maker refused to provide a firm quote
+          type: integer
+          enum: [1]
+      required:
+        - code

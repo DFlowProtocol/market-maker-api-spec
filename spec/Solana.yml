@@ -1,0 +1,324 @@
+openapi: 3.0.0
+info:
+  title: DFlow Market Maker Solana API
+  version: 0.1.1
+  description: An API for interacting with a DFlow market maker to retrieve quotes and submit transactions for Solana swaps.
+
+paths:
+  /indicativeQuote:
+    get:
+      summary: Retrieve an indicative quote
+      parameters:
+        - name: sendMint
+          description: Base58-encoded address of the SPL mint that the retail trader is sending
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: receiveMint
+          description: Base58-encoded address of the SPL mint that the retail trader is receiving
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: minFillPrice
+          description: Minimum allowed fill price. Specified as token units sent to retail trader per token received from retail trader
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: '^0$|^[1-9]\d*$'
+        - name: auctionId
+          description: The auction ID associated with this request
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: '^0$|^[1-9]\d*$'
+        - name: auctionEpoch
+          description: The auction epoch associated with this request
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: '^0$|^[1-9]\d*$'
+      responses:
+        '200':
+          description: Indicative quote details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IndicativeQuoteGetResponse'
+        default:
+          description: The market maker did not provide an indicative quote
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /firmQuote:
+    post:
+      summary: Retrieve a firm quote
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FirmQuotePostRequest'
+      responses:
+        '200':
+          description: Firm quote response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FirmQuotePostResponse'
+        default:
+          description: The market maker did not provide a firm quote due to an unexpected error
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /sendTransaction:
+    post:
+      summary: Send a transaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendTransactionPostRequest'
+      responses:
+        '200':
+          description: Transaction status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SendTransactionPostResponse'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                type: object
+
+components:
+  schemas:
+    IndicativeQuoteGetResponse:
+      type: object
+      properties:
+        fillPrice:
+          description: Token units sent to retail trader per token received from retail trader. Must be greater than or equal to the minFillPrice.
+          type: string
+          pattern: '^0$|^[1-9]\d*$'
+      required:
+        - fillPrice
+
+    FirmQuotePostRequest:
+      type: object
+      properties:
+        sendMint:
+          description: Base58-encoded address of the SPL mint that the retail trader is sending
+          type: string
+        receiveMint:
+          description: Base58-encoded address of the SPL mint that the retail trader is receiving
+          type: string
+        sendQty:
+          description: Send quantity specified as a scaled integer
+          type: string
+          pattern: '^[1-9]\d*$'
+        minFillQty:
+          description: Minimum allowed fill quantity specified as a scaled integer
+          type: string
+          pattern: '^0$|^[1-9]\d*$'
+        isSendWSOL:
+          description: True if and only if the retail trader is sending wrapped SOL. Note that even if the retail trader sends wrapped SOL, the market maker receives native SOL.
+          type: boolean
+        retailTrader:
+          description: Base58-encoded address of the retail trader's wallet
+          type: string
+        transaction:
+          description: transaction to be sent to the network
+          type: object
+          properties:
+            blockhash:
+              description: Blockhash that will be used to create the transaction
+              type: string
+            lastValidBlockHeight:
+              description: The last valid block height at which the transaction will be valid
+              type: integer
+            lastAllowedBlockHeight:
+              description: The last block height at which the retail trader will be allowed to send the transaction
+              type: integer
+          required:
+            - blockhash
+            - lastValidBlockHeight
+            - lastAllowedBlockHeight
+        endorsement:
+          description: The order flow source's endorsement of this request
+          type: object
+          properties:
+            endorser:
+              description: Base58-encoded Ed25519 public key used to sign the endorsement message.
+              type: string
+            signature:
+              description: Base64-encoded Ed25519 signature of {id},{expirationTime},{data}
+              type: string
+            id:
+              description: Base64-encoded 64-bit identifier for the endorsement.
+              type: string
+            expirationTimeUTC:
+              description: Expiration time as UTC. Number of seconds since Jan 1, 1970 00:00:00 UTC.
+              type: integer
+            data:
+              description: Pipe-delimited endorsement data
+              type: string
+          required:
+            - endorser
+            - signature
+            - id
+            - expirationTimeUTC
+            - data
+        auctionId:
+          description: The auction ID associated with this request
+          type: string
+          pattern: '^0$|^[1-9]\d*$'
+        auctionEpoch:
+          description: The auction epoch associated with this request
+          type: string
+          pattern: '^0$|^[1-9]\d*$'
+      required:
+        - sendMint
+        - receiveMint
+        - sendQty
+        - minFillQty
+        - isSendWSOL
+        - retailTrader
+        - transaction
+        - endorsement
+        - auctionId
+        - auctionEpoch
+
+    FirmQuotePostResponse:
+      type: object
+      discriminator:
+        propertyName: code
+      oneOf:
+        - $ref: '#/components/schemas/FirmQuoteResponseOk'
+        - $ref: '#/components/schemas/FirmQuoteResponseRefused'
+
+    FirmQuoteResponseOk:
+      type: object
+      properties:
+        code:
+          description: Ok
+          type: integer
+          enum: [0]
+        fillQty:
+          description: Fill quantity specified as a scaled integer. Must be greater than or equal to the minFillQty.
+          type: string
+          pattern: '^0$|^[1-9]\d*$'
+        xAccount:
+          description: |
+            Base58-encoded address of the market maker's account that will receive the token that the retail trader is sending.
+            If the retail trader is sending SOL or WSOL, this is the address of the market maker's wallet that will receive SOL.
+            If the retail trader is sending WSOL, this account must sign the transaction when processing a send transaction request, and the transaction will close this account's associated token account for WSOL, unwrapping the WSOL received from the retail trader and any WSOL that was in the account prior to the transaction. If the retail trader is sending WSOL, this account must hold enough SOL to meet the rent-exempt minimum for a token account at the time the transaction is processed.
+            If the retail trader is sending any token other than SOL or WSOL, this is the address of the market maker's SPL token account for the token that the retail trader is sending.
+          type: string
+        yAccount:
+          description: |
+            Base58-encoded address of the market maker's account that will send the token that the retail trader is receiving.
+            If the retail trader is receiving SOL or WSOL, this is the address of the market maker's wallet that will send SOL, and this account must sign the transaction when processing a send transaction request.
+            If the retail trader is receiving any token other than SOL or WSOL, this is the address of the market maker's SPL token account for the token that the retail trader is receiving.
+            If the retail trader is sending WSOL and the auction specifies the retail trader as the fee payer, this SPL token account must be owned by the xAccount wallet.
+          type: string
+        yTokenAccountOwner:
+          description: |
+            If the retail trader is receiving SOL or WSOL, this field is ignored.
+            If the retail trader is sending WSOL and the auction specifies the retail trader as the fee payer, this field is ignored, and the yAccount SPL token account must be owned by the xAccount wallet.
+            In all other cases, this field must be specified as the Base58-encoded address of the account that owns the yAccount SPL token account, and this account must sign the transaction when processing a send transaction request.
+          type: string
+        feePayer:
+          description: |
+            If the auction specifies the market maker as the fee payer, this field must be specified as the Base58-encoded address of the transaction fee payer, and this account must sign the transaction when processing a send transaction request.
+            In all other cases, this field is ignored.
+          type: string
+        quoteId:
+          description: The market maker's identifier for the quote
+          type: string
+      required:
+        - code
+        - fillQty
+        - xAccount
+        - yAccount
+        - quoteId
+        # yTokenAccountOwner and feePayer are only required in some cases
+
+    FirmQuoteResponseRefused:
+      type: object
+      properties:
+        code:
+          description: The market maker refused to provide a firm quote
+          type: integer
+          enum: [1]
+      required:
+        - code
+
+    SendTransactionPostRequest:
+      type: object
+      properties:
+        tx:
+          description: Base64-encoded transaction
+          type: string
+        lastValidBlockHeight:
+          description: The last valid block height to use when confirming the transaction
+          type: integer
+        quoteId:
+          description: The market maker's identifier for the quote
+          type: string
+        auctionId:
+          description: The auction ID associated with this request
+          type: string
+          pattern: '^0$|^[1-9]\d*$'
+        auctionEpoch:
+          description: The auction epoch associated with this request
+          type: string
+          pattern: '^0$|^[1-9]\d*$'
+      required:
+        - tx
+        - lastValidBlockHeight
+        - quoteId
+        - auctionId
+        - auctionEpoch
+
+    SendTransactionPostResponse:
+      type: object
+      discriminator:
+        propertyName: code
+      oneOf:
+        - $ref: '#/components/schemas/SendTransactionResponseSent'
+        - $ref: '#/components/schemas/SendTransactionResponseNotSent'
+
+    SendTransactionResponseSent:
+      type: object
+      properties:
+        code:
+          description: Transaction was sent to the network
+          type: integer
+          enum: [0]
+        signature:
+          description: Transaction signature
+          type: string
+      required:
+        - code
+        - signature
+
+    SendTransactionResponseNotSent:
+      type: object
+      properties:
+        code:
+          description: Transaction was not sent to the network
+          type: integer
+          enum: [1]
+      required:
+        - code
