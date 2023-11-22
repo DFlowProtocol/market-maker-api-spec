@@ -10,13 +10,13 @@ paths:
       summary: Retrieve an indicative quote
       parameters:
         - name: sendToken
-          description: Address of the ERC-20 token that the retail trader is sending
+          description: Address of the ERC-20 token that the retail trader is sending. If specified as 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, the retail trader sends the unwrapped variant of the native token, and the maker receives the wrapped variant.
           in: query
           required: true
           schema:
             $ref: '#/components/schemas/SchemaAddress'
         - name: receiveToken
-          description: Address of the ERC-20 token that the retail trader is receiving
+          description: Address of the ERC-20 token that the retail trader is receiving. If specified as 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, the retail trader receives the unwrapped variant variant of the native token, and the maker sends the wrapped variant.
           in: query
           required: true
           schema:
@@ -84,7 +84,7 @@ components:
     SchemaAddress:
       type: string
       pattern: '^0x[0-9a-fA-F]{40}$'
-      
+
     Eip712ObjectProperty:
       type: object
       properties:
@@ -135,7 +135,7 @@ components:
       type: object
       properties:
         fillPrice:
-          description: Token units sent to retail trader per token received from retail trader. Must be greater than or equal to the minFillPrice.
+          description: oken units sent to retail trader per token received from retail trader. Must be greater than or equal to the minFillPrice.
           type: string
           pattern: '^0$|^[1-9]\d*$'
       required:
@@ -145,10 +145,10 @@ components:
       type: object
       properties:
         sendToken:
-          description: Address of the ERC-20 token that the retail trader is sending. This is the takerToken used to construct the 0x RFQ order.
+          description: Address of the ERC-20 token that the retail trader is sending. If specified as 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, the retail trader sends the unwrapped variant of the native token, and the maker receives the wrapped variant.
           $ref: '#/components/schemas/SchemaAddress'
         receiveToken:
-          description: Address of the ERC-20 token that the retail trader is receiving. This is the makerToken used to construct the 0x RFQ order.
+          description: Address of the ERC-20 token that the retail trader is receiving. If specified as 0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, the retail trader receives the unwrapped variant variant of the native token, and the maker sends the wrapped variant.
           $ref: '#/components/schemas/SchemaAddress'
         takerToken:
           description: takerToken to use when constructing the DFlow Swap order. Not specified if the retail trader is sending the unwrapped variant of the native token.
@@ -157,7 +157,7 @@ components:
           description: makerToken to use when constructing the DFlow Swap order. Not specified if the retail trader is receiving the unwrapped variant of the native token.
           $ref: '#/components/schemas/SchemaAddress'
         sendQty:
-          description: Send quantity specified as a scaled integer
+          description: Send quantity specified as a scaled integer. This is the `takerAmount` to use when constructing the DFlow Swap order.
           type: string
           pattern: '^[1-9]\d*$'
         platformFee:
@@ -168,7 +168,7 @@ components:
           description: Platform fee receiver address. Specified if and only if a platform fee applies to the order. If specified, this is the `platformFeeReceiver` to use when constructing the DFlow Swap order.
           $ref: '#/components/schemas/SchemaAddress'
         minFillQty:
-          description: Minimum allowed fill quantity specified as a scaled integer
+          description: Minimum allowed fill quantity specified as a scaled integer. This is the minimum `makerAmount` to use when constructing the DFlow Swap order.
           type: string
           pattern: '^0$|^[1-9]\d*$'
         useMakerAmountAndTakerAmount:
@@ -211,6 +211,8 @@ components:
         minExpiry:
           description: Minimum allowed expiry for the 0x RFQ order. Number of seconds since Jan 1, 1970 00:00:00 UTC.
           type: integer
+          minimum: 0
+          maximum: 1099511627775  # Equivalent to 0xffffffffff in hexadecimal
         flags:
           description: uint256 flags to use when constructing the DFlow Swap order
           type: string
@@ -268,18 +270,19 @@ components:
           type: integer
           enum: [0]
         fillQty:
-          description: Fill quantity specified as a scaled integer. Must be greater than or equal to the minFillQty.
+          description: Fill quantity specified as a scaled integer. Must be greater than or equal to the `minFillQty`. This is the `makerAmount` used to construct the DFlow Swap order. This amount of the `receiveToken` is transfered from the `maker` to the `taker`.
           type: string
           pattern: '^0$|^[1-9]\d*$'
         maker:
-          description: Address of the market maker's wallet. This is the signer of the 0x RFQ order. This is the maker used to construct the 0x RFQ order.
+          description: Address of the market maker's wallet. This is the signer of the DFlow Swap order. This is the `maker` used to construct the DFlow Swap order.
           $ref: '#/components/schemas/SchemaAddress'
         expiry:
-          description: expiry used to construct the 0x RFQ order. Formatted as a hex string.
-          type: string
-          pattern: '^[0-9a-fA-F]+$'
+          description: expiry used to construct the DFlow Swap order
+          type: integer
+          minimum: 0
+          maximum: 1099511627775  # Equivalent to 0xffffffffff in hexadecimal
         rfqOrderSignature:
-          description: Market maker's signature of the 0x RFQ order
+          description: Market maker's signature of the DFlow Swap order
           type: object
           properties:
             r:
