@@ -287,20 +287,17 @@ components:
           properties:
             r:
               type: string
-              pattern: '^0x[0-9a-fA-F]+$'
+              pattern: '^0x[0-9a-fA-F]{64}$'
             s:
               type: string
-              pattern: '^0x[0-9a-fA-F]+$'
+              pattern: '^0x[0-9a-fA-F]{64}$'
             v:
               type: integer
-            signatureType:
-              type: integer
-              enum: [2]
+              enum: [27, 28]
           required:
             - r
             - s
             - v
-            - signatureType
         quoteId:
           description: The market maker's identifier for the quote
           type: string
