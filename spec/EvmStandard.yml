@@ -1,7 +1,7 @@
 openapi: 3.0.1
 info:
   title: DFlow Market Maker EVM Standard Swap API
-  version: 0.1.1
+  version: 0.2.0
   description: An API for interacting with a DFlow market maker to retrieve quotes for EVM Standard Swaps.
 
 paths:
